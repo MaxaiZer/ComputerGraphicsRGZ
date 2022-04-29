@@ -20,8 +20,8 @@ const int ORTHO_VERSION=0; // 1 is 2D version, 0 is 3D version.
 #define WINDOW_H 1080
 
 #define N_SIZE 10000
-#define BLOCK_SIZE 256 //If you put a block size higher than the maximum block size supported by the GPU your kernel wont do anything when launched (see deviceQuery)
-#define GRID_SIZE 1000
+const int THREADS = 256;
+const int BLOCKS = (N_SIZE + THREADS - 1) / THREADS;
 #define SOFT_FACTOR 0.00125f
 
 #define GRAVITATIONAL_CONSTANT 0.01f

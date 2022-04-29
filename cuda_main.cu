@@ -4,8 +4,8 @@
 #include <fstream>
 
 //Main program
-int main(int argc, char **argv) {
-
+int main(int argc, char **argv) 
+{
     srand(time(NULL));
 
     glutInit(&argc, argv);
@@ -37,7 +37,6 @@ int main(int argc, char **argv) {
     glutMotionFunc(mouseCallback);
     glutPassiveMotionFunc(PassiveMouseMotion);
     glutReshapeFunc(resizeCallback);
-
 
     // init the CUDA and the OpenGL
     init();

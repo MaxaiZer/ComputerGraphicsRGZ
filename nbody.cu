@@ -41,38 +41,22 @@ int icbrt2(unsigned x) {
    return y;
 }
 
-void initBody(int i){
+void initBody(int i)
+{
+	pos[i].x = (-WINDOW_W / 2 + ((float)rand() / (float)(RAND_MAX)) * WINDOW_W) * 0.9;
+	pos[i].y = (-WINDOW_H / 2 + ((float)rand() / (float)(RAND_MAX)) * WINDOW_H) * 0.9;
+	pos[i].z = (-500 + ((float)rand() / (float)(RAND_MAX)) * 500) * 0.9;
 
-		if(ORTHO_VERSION) {
-			pos[i].x = (-WINDOW_W/2 + ((float)rand()/(float)(RAND_MAX)) * WINDOW_W) * 0.9;
-			pos[i].y = (-WINDOW_H/2 + ((float)rand()/(float)(RAND_MAX)) * WINDOW_H) * 0.9;
-			pos[i].z = 0.0f ;
+	acc[i].x = -50 + ((float)rand() / (float)(RAND_MAX)) * 50;
+	acc[i].y = -50 + ((float)rand() / (float)(RAND_MAX)) * 50;
+	acc[i].z = -50 + ((float)rand() / (float)(RAND_MAX)) * 50;
 
-			acc[i].x = -5 + ((float)rand()/(float)(RAND_MAX))*10;
-			acc[i].y = -5 + ((float)rand()/(float)(RAND_MAX))*10;
-			acc[i].z = -5 + ((float)rand()/(float)(RAND_MAX))*10;
+	vel[i].x = -50 + ((float)rand() / (float)(RAND_MAX)) * 50;
+	vel[i].y = -50 + ((float)rand() / (float)(RAND_MAX)) * 50;
+	vel[i].z = -50 + ((float)rand() / (float)(RAND_MAX)) * 50;
 
-			vel[i].x = -5 + ((float)rand()/(float)(RAND_MAX))*10;
-			vel[i].y = -5 + ((float)rand()/(float)(RAND_MAX))*10;
-			vel[i].z = -5 + ((float)rand()/(float)(RAND_MAX))*10;
-			
-		}
-		else{
-			pos[i].x = (-WINDOW_W/2 + ((float)rand()/(float)(RAND_MAX)) * WINDOW_W) * 0.9;
-			pos[i].y = (-WINDOW_H/2 + ((float)rand()/(float)(RAND_MAX)) * WINDOW_H) * 0.9;
-			pos[i].z = (-500 + ((float)rand()/(float)(RAND_MAX)) * 500) * 0.9 ;
-
-			acc[i].x = -50 + ((float)rand()/(float)(RAND_MAX))*50;
-			acc[i].y = -50 + ((float)rand()/(float)(RAND_MAX))*50;
-			acc[i].z = -50 + ((float)rand()/(float)(RAND_MAX))*50;
-
-			vel[i].x = -50 + ((float)rand()/(float)(RAND_MAX))*50;
-			vel[i].y = -50 + ((float)rand()/(float)(RAND_MAX))*50;
-			vel[i].z = -50 + ((float)rand()/(float)(RAND_MAX))*50;
-		}
-
-		r[i] = ((float)rand()/(float)(RAND_MAX))*3.0;
-		m[i] = 4.0/3.0*PI * r[i]*r[i]*r[i] * DENSITY;
+	r[i] = ((float)rand() / (float)(RAND_MAX)) * 3.0;
+	m[i] = 4.0 / 3.0 * PI * pow(r[i],3) * DENSITY;
 }
 
 void initCUDA()
@@ -156,7 +140,6 @@ void deinit()
 	cudaFree( vel_dev )	;
 }
 
-
 /**
  * update the position and velocity for each star
  */
@@ -185,7 +168,6 @@ void updatePosAndVel(float3 pos[], float3 vel[], float3 acc[], float3 cur_a, int
 __device__
 void bodyBodyInteraction(float3 &acc, float m[], int self, int other, float3 dist3, float dist_sqr)
 {
-
 	float dist_six = dist_sqr * dist_sqr * dist_sqr;
 	float dist_cub = sqrtf(dist_six);
 
@@ -198,119 +180,109 @@ void bodyBodyInteraction(float3 &acc, float m[], int self, int other, float3 dis
 /**
  * the accelartion on one star if they collide
  */
-__device__
-void bodyBodyCollision(float m[], float3 vel[], float3 acc[], int self, int other)
+
+template <class T>
+__device__ void swap(T& first, T& second)
 {
-	
-	float mass = m[self] + m[other];
+	T tmp = first;
+	first = second;
+	second = tmp;
+}
+
+__device__
+void mergeBodies(float m[], float3 vel[], float3 acc[], int self, int other)
+{
+	float newMass = m[self] + m[other];
 
 	// Used perfectly unelastic collision model to caculate the velocity after merging.
 	float3 velocity;
 
-	velocity.x = (vel[self].x * m[self] + vel[other].x * m[other])/mass;
-	velocity.y = (vel[self].y * m[self] + vel[other].y * m[other])/mass;
-	velocity.z = (vel[self].z * m[self] + vel[other].z * m[other])/mass;
+	velocity.x = (vel[self].x * m[self] + vel[other].x * m[other]) / newMass;
+	velocity.y = (vel[self].y * m[self] + vel[other].y * m[other]) / newMass;
+	velocity.z = (vel[self].z * m[self] + vel[other].z * m[other]) / newMass;
 
-	float3 zero_float3;
-	zero_float3.x = 0.0f;
-	zero_float3.y = 0.0f;
-	zero_float3.z = 0.0f;
-
+	float3 zero_float3 = { 0.0f, 0.0f, 0.0f } ;
 	acc[self] = zero_float3;
 	acc[other] = zero_float3;
 
-	// the heavier body will remain, but the lighter one will disappear
-	// although here will cause code divergence, the 4 operations are very simple
-	if(m[self]>m[other])
-	{ 
-		vel[self] = velocity;
-		vel[other] = zero_float3;
-		m[self] = mass;
-		m[other] = 0.0f;
-	}
-	else
-	{
-		vel[other] = velocity;
-		vel[self] = zero_float3;
-		m[other] = mass;
-		m[self] = 0.0f;
-	}
-}
+	int biggerIndex = self, smallerIndex = other;
 
+	if (m[biggerIndex] < m[smallerIndex])
+	{
+		swap(biggerIndex, smallerIndex);
+	}
+
+	m[biggerIndex] = newMass;
+	vel[biggerIndex] = velocity;
+	m[smallerIndex] = 0.0f;
+	vel[smallerIndex] = zero_float3;	
+}
 
 __global__ 
 void nbody(float3* pos, float3* acc, float3* vel, float* m, float* r) 
 {
-	int idx = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+	int idx = blockIdx.x * THREADS + threadIdx.x;
 
-	if(idx < N_SIZE && m[idx] != 0)
-	{
-		float m_before = m[idx];
+	if (idx >= N_SIZE || m[idx] == 0)
+		return;
 
-		// initiate the acceleration of the next moment 
-		float3 cur_acc;
+	float oldMass = m[idx];
 
-		cur_acc.x = 0 ;
-		cur_acc.y = 0 ;
-		cur_acc.z = 0 ;
+	// initiate the acceleration of the next moment 
+	float3 cur_acc = { 0.0f, 0.0f, 0.0f };
 
-		// for any two body
-		for(int i = 0; i < N_SIZE; i++){
+	// for any two body
+	for (int i = 0; i < N_SIZE; i++) {
 
-			if( i != idx && m[i]!= 0){
+		if (i != idx && m[i] != 0) {
 
-				if(m[idx]!=0){
+			if (m[idx] == 0)
+				continue;
 
-					float3 dist3; // calculate their distance
+			float3 dist3; // calculate their distance
 
-					dist3.x = pos[i].x - pos[idx].x;
-					dist3.y = pos[i].y - pos[idx].y;
-					dist3.z = pos[i].z - pos[idx].z;
+			dist3.x = pos[i].x - pos[idx].x;
+			dist3.y = pos[i].y - pos[idx].y;
+			dist3.z = pos[i].z - pos[idx].z;
 
-					// update the force between two non-empty bodies
-					float dist_sqr = dist3.x * dist3.x + dist3.y * dist3.y + dist3.z * dist3.z + SOFT_FACTOR;
+			// update the force between two non-empty bodies
+			float dist_sqr = dist3.x * dist3.x + dist3.y * dist3.y + dist3.z * dist3.z + SOFT_FACTOR;
 
-					// if they depart
-					if( sqrt(dist_sqr) > r[idx] + r[i]) 
-						bodyBodyInteraction(cur_acc, m, idx, i, dist3, dist_sqr);
+			if (sqrt(dist_sqr) > r[idx] + r[i])
+				bodyBodyInteraction(cur_acc, m, idx, i, dist3, dist_sqr);
+			else
+				mergeBodies(m, vel, acc, idx, i);
 
-					// if they overlap
-					else 
-						bodyBodyCollision(m, vel, acc, idx, i);	
-					
-				}
-			}
 		}
-
-		// multiplies a Gravitational Constant
-		cur_acc.x *= GRAVITATIONAL_CONSTANT;
-		cur_acc.y *= GRAVITATIONAL_CONSTANT;
-		cur_acc.z *= GRAVITATIONAL_CONSTANT;
-		
-		//update the position and velocity
-		updatePosAndVel(pos, vel, acc, cur_acc, idx);
-
-		// update the body acceleration
-		acc[idx].x = cur_acc.x;
-		acc[idx].y = cur_acc.y;
-		acc[idx].z = cur_acc.z;
-
-		// if the mass is changed, update the radius
-		if(m[idx] != m_before)
-			r[idx] = icbrt2(m[idx]/ (DENSITY * 4.0/3.0*PI)); 
 	}
+
+	// multiplies a Gravitational Constant
+	cur_acc.x *= GRAVITATIONAL_CONSTANT;
+	cur_acc.y *= GRAVITATIONAL_CONSTANT;
+	cur_acc.z *= GRAVITATIONAL_CONSTANT;
+
+	//update the position and velocity
+	updatePosAndVel(pos, vel, acc, cur_acc, idx);
+
+	// update the body acceleration
+	acc[idx].x = cur_acc.x;
+	acc[idx].y = cur_acc.y;
+	acc[idx].z = cur_acc.z;
+
+	// if the mass is changed, update the radius
+	if (m[idx] != oldMass)
+		r[idx] = icbrt2(m[idx] / (DENSITY * 4.0 / 3.0 * PI));
 }
-
-
 
 int runKernelNBodySimulation()
 {
 	// Map the buffer to CUDA
 
-	nbody<<<GRID_SIZE, BLOCK_SIZE>>>(pos_dev, acc_dev, vel_dev, m_dev, r_dev);
+	nbody<<<BLOCKS, THREADS>>>(pos_dev, acc_dev, vel_dev, m_dev, r_dev);
 
 	cudaMemcpy( pos, pos_dev, bodies_size_float3, cudaMemcpyDeviceToHost ); 
 	cudaMemcpy( m, m_dev, bodies_size_float, cudaMemcpyDeviceToHost ); 
 	cudaMemcpy( r, r_dev, bodies_size_float, cudaMemcpyDeviceToHost ); 
+
 	return EXIT_SUCCESS;
 }
