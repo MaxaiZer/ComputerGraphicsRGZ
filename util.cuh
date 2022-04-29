@@ -1,8 +1,7 @@
 #ifndef _UTIL_
 #define _UTIL_
 
-
-//utility functions declarations go here
+//void timerFunc(int value);
 
 // defined the key board function
 void keyboardFunc(unsigned char key, int x, int y);
@@ -14,9 +13,7 @@ void mouseCallback(int x, int y);
 void resizeCallback(int w, int h);
 
 // for the last mouse motion
-void PassiveMouseMotion( int x, int y );
-
-void timerFunc(int value);
+void PassiveMouseMotion(int x, int y);
 
 void draw2(void);
 

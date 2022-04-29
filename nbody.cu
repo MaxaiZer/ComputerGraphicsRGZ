@@ -87,7 +87,6 @@ void initCUDA()
 
 void initGL()
 {
-
     glEnable(GL_CULL_FACE);
 	glEnable(GL_POINT_SIZE);
 
@@ -100,27 +99,19 @@ void initGL()
 	glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     /*void glOrtho(GLdouble  left,  GLdouble  right,  GLdouble  bottom,  GLdouble  top,  GLdouble  nearVal,  GLdouble  farVal);*/
-    if( ORTHO_VERSION )
-    {
-    	glOrtho(-WINDOW_W/2, WINDOW_W/2, -WINDOW_H/2, WINDOW_H/2, -100, 100);
-    }
-    else
-    {
-    	gluPerspective (45, (float)WINDOW_W/(float)WINDOW_H, 1, 2000);
-    }
+
+    gluPerspective (45, (float)WINDOW_W/(float)WINDOW_H, 1, 2000);
    
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    if( !ORTHO_VERSION )
-   		gluLookAt(camera.camX,camera.camY,camera.camZ, //Camera position
-        camera.camX+camera.forwardX,camera.camY+camera.forwardY,camera.camZ+camera.forwardZ, //Position of the object to look at
-        camera.upX,camera.upY,camera.upZ); //Camera up direction
+   	gluLookAt(camera.pos.x,camera.pos.y,camera.pos.z, //Camera position
+    camera.pos.x+camera.forward.x,camera.pos.y+camera.forward.y,camera.pos.z+camera.forward.z, //Position of the object to look at
+    camera.up.x,camera.up.y,camera.up.z); //Camera up direction
 
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_FOG);
-	
 }
 
 // init the program
@@ -140,10 +131,6 @@ void deinit()
 	cudaFree( vel_dev )	;
 }
 
-/**
- * update the position and velocity for each star
- */
-
 __device__
 void updatePosAndVel(float3 pos[], float3 vel[], float3 acc[], float3 cur_a, int self)
 {
@@ -162,9 +149,6 @@ void updatePosAndVel(float3 pos[], float3 vel[], float3 acc[], float3 cur_a, int
 	vel[self].z = newvz; 
 }
 
-/**
- * the accelartion on one star if they do not collide
- */
 __device__
 void bodyBodyInteraction(float3 &acc, float m[], int self, int other, float3 dist3, float dist_sqr)
 {
@@ -176,10 +160,6 @@ void bodyBodyInteraction(float3 &acc, float m[], int self, int other, float3 dis
 	acc.y += (m[other] * dist3.y) / dist_cub;
 	acc.z += (m[other] * dist3.z) / dist_cub;
 }
-
-/**
- * the accelartion on one star if they collide
- */
 
 template <class T>
 __device__ void swap(T& first, T& second)
