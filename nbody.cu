@@ -61,8 +61,6 @@ void initBody(int i)
 
 void initCUDA()
 {
-
-
 	bodies_size_float3 = N_SIZE * sizeof(float3);
 	bodies_size_float = N_SIZE * sizeof(float);
 
@@ -76,13 +74,11 @@ void initCUDA()
 		initBody(i);
 	}
 
-
 	cudaMemcpy( pos_dev, pos, bodies_size_float3, cudaMemcpyHostToDevice );
 	cudaMemcpy( acc_dev, acc, bodies_size_float3, cudaMemcpyHostToDevice );
 	cudaMemcpy( vel_dev, vel, bodies_size_float3, cudaMemcpyHostToDevice );
 	cudaMemcpy( m_dev, m, bodies_size_float, cudaMemcpyHostToDevice );
 	cudaMemcpy( r_dev, r, bodies_size_float, cudaMemcpyHostToDevice );
-
 }
 
 void initGL()
@@ -214,26 +210,26 @@ void nbody(float3* pos, float3* acc, float3* vel, float* m, float* r)
 	// for any two body
 	for (int i = 0; i < N_SIZE; i++) {
 
-		if (i != idx && m[i] != 0) {
+		if (i == idx || m[i] == 0)
+			continue;
 
-			if (m[idx] == 0)
-				continue;
+		if (m[idx] == 0)
+			return;
 
-			float3 dist3; // calculate their distance
+		float3 dist3; // calculate their distance
 
-			dist3.x = pos[i].x - pos[idx].x;
-			dist3.y = pos[i].y - pos[idx].y;
-			dist3.z = pos[i].z - pos[idx].z;
+		dist3.x = pos[i].x - pos[idx].x;
+		dist3.y = pos[i].y - pos[idx].y;
+		dist3.z = pos[i].z - pos[idx].z;
 
-			// update the force between two non-empty bodies
-			float dist_sqr = dist3.x * dist3.x + dist3.y * dist3.y + dist3.z * dist3.z + SOFT_FACTOR;
+		// update the force between two non-empty bodies
+		float dist_sqr = dist3.x * dist3.x + dist3.y * dist3.y + dist3.z * dist3.z + SOFT_FACTOR;
 
-			if (sqrt(dist_sqr) > r[idx] + r[i])
-				bodyBodyInteraction(cur_acc, m, idx, i, dist3, dist_sqr);
-			else
-				mergeBodies(m, vel, acc, idx, i);
+		if (sqrt(dist_sqr) > r[idx] + r[i])
+			bodyBodyInteraction(cur_acc, m, idx, i, dist3, dist_sqr);
+		else
+			mergeBodies(m, vel, acc, idx, i);
 
-		}
 	}
 
 	// multiplies a Gravitational Constant

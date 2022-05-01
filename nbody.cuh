@@ -56,7 +56,7 @@ void initGL();
 
 int runKernelNBodySimulation();
 
-__global__ 
-void nbody(float3* pos, float3* acc, float3* vel, float* m, float* r);
+//__global__ 
+//void nbody(float3* pos, float3* acc, float3* vel, float* m, float* r);
 
 #endif
