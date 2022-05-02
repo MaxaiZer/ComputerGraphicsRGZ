@@ -10,9 +10,9 @@ int main(int argc, char **argv)
 
     glutInit(&argc, argv);
 
-    /*Setting up  The Display
-    /    -RGB color model + Alpha Channel = GLUT_RGBA
-    */
+    //Setting up  The Display
+    //   -RGB color model + Alpha Channel = GLUT_RGBA
+    //
     glutInitDisplayMode(GLUT_RGBA|GLUT_DOUBLE| GLUT_DEPTH);
 
     //Configure Window Postion

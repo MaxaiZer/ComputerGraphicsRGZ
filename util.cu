@@ -28,6 +28,8 @@ GLfloat fogColor[] = {0.5f, 0.5f, 0.5f, 1};
 float fps;
 float lastFrameTime = 0;
 
+const int FOV = 40;
+
 //void timerFunc(int value)
 //{
 //    glutPostRedisplay();
@@ -142,6 +144,14 @@ void mouseCallback(int x, int y)
     camera.up.x = newUpX / sizeUp; camera.up.y = newUpY / sizeUp; camera.up.z = newUpZ / sizeUp;
 }
 
+float getVectorsAngle(float4 v1, float4 v2)
+{
+    float cos = (v1.x * v2.x + v1.y * v2.y + v1.z * v2.z) /
+        ( sqrtf(v1.x * v1.x + v1.y * v1.y + v1.z * v1.z) * 
+            sqrtf(v2.x * v2.x + v2.y * v2.y + v2.z * v2.z) );
+    return acos(cos) * 180.0 / PI;
+}
+
 void cross(float x1, float y1, float z1, float x2, float y2, float z2,float& rightX, float& rightY, float& rightZ)
 {
     rightX = y1*z2 - z1*y2;
@@ -217,9 +227,14 @@ void draw2()
     drawText("FPS: " + std::to_string(fps), camera.pos.x + camera.forward.x, camera.pos.y + camera.forward.y);
 
     glColor3f(0.5f, 0.5f, 0.3f);
+    
     for(int i = 0; i < N_SIZE; i ++)
     {
         if (m[i] == 0)
+            continue;
+
+        float4 bodyVector = { pos[i].x - camera.pos.x, pos[i].y - camera.pos.y, pos[i].z - camera.pos.z };
+        if (getVectorsAngle(camera.forward, bodyVector) > FOV)
             continue;
 
 		glPushMatrix();

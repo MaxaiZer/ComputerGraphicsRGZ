@@ -33,9 +33,9 @@ extern float r[N_SIZE];
 
 struct Camera
 {
-	float3 pos = { 0, 0, 200 };
-	float3 forward = { 0, 0, -1 };
-	float3 up = { 0, 1, 0 };
+	float4 pos = { 0, 0, 200 };
+	float4 forward = { 0, 0, -1 };
+	float4 up = { 0, 1, 0 };
 
 	float theta = 0, phi = PI;// PI;
 };
