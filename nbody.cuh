@@ -27,7 +27,7 @@ const int BLOCKS = (N_SIZE + THREADS - 1) / THREADS;
 #define DENSITY 1000000
 
 
-extern float3 pos[N_SIZE];
+extern float4 pos[N_SIZE];
 extern float m[N_SIZE];
 extern float r[N_SIZE];
 
@@ -57,6 +57,6 @@ void initGL();
 int runKernelNBodySimulation();
 
 //__global__ 
-//void nbody(float3* pos, float3* acc, float3* vel, float* m, float* r);
+//void nbody(float4* pos, float4* acc, float4* vel, float* m, float* r);
 
 #endif

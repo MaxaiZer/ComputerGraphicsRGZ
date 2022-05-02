@@ -9,9 +9,9 @@ float prevX = WINDOW_W / 2, prevY = WINDOW_H / 2;
 bool toggleHelp = true;
 bool mouseUp = 0;
 
-extern float3 pos[N_SIZE];
-extern float3 vel[N_SIZE];
-extern float3 acc[N_SIZE];
+extern float4 pos[N_SIZE];
+extern float4 vel[N_SIZE];
+extern float4 acc[N_SIZE];
 extern float m[N_SIZE];
 extern float r[N_SIZE];
 

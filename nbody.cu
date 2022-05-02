@@ -3,17 +3,17 @@
 #include <fstream>
 #include <device_launch_parameters.h>
 
-int bodies_size_float3 = 0;
+int bodies_size_float4 = 0;
 int bodies_size_float = 0;
-float3 *pos_dev = NULL;
-float3 *vel_dev = NULL;
-float3 *acc_dev = NULL;
+float4 *pos_dev = NULL;
+float4 *vel_dev = NULL;
+float4 *acc_dev = NULL;
 float *m_dev = NULL;
 float *r_dev = NULL;
 
-float3 pos[N_SIZE];
-float3 vel[N_SIZE];
-float3 acc[N_SIZE];
+float4 pos[N_SIZE];
+float4 vel[N_SIZE];
+float4 acc[N_SIZE];
 float m[N_SIZE];
 float r[N_SIZE];
 
@@ -61,12 +61,12 @@ void initBody(int i)
 
 void initCUDA()
 {
-	bodies_size_float3 = N_SIZE * sizeof(float3);
+	bodies_size_float4 = N_SIZE * sizeof(float4);
 	bodies_size_float = N_SIZE * sizeof(float);
 
-	cudaMalloc( (void**)&pos_dev, bodies_size_float3 ); 
-	cudaMalloc( (void**)&acc_dev, bodies_size_float3 ); 
-	cudaMalloc( (void**)&vel_dev, bodies_size_float3 ); 
+	cudaMalloc( (void**)&pos_dev, bodies_size_float4 ); 
+	cudaMalloc( (void**)&acc_dev, bodies_size_float4 ); 
+	cudaMalloc( (void**)&vel_dev, bodies_size_float4 ); 
 	cudaMalloc( (void**)&m_dev, bodies_size_float ); 
 	cudaMalloc( (void**)&r_dev, bodies_size_float ); 
 
@@ -74,9 +74,9 @@ void initCUDA()
 		initBody(i);
 	}
 
-	cudaMemcpy( pos_dev, pos, bodies_size_float3, cudaMemcpyHostToDevice );
-	cudaMemcpy( acc_dev, acc, bodies_size_float3, cudaMemcpyHostToDevice );
-	cudaMemcpy( vel_dev, vel, bodies_size_float3, cudaMemcpyHostToDevice );
+	cudaMemcpy( pos_dev, pos, bodies_size_float4, cudaMemcpyHostToDevice );
+	cudaMemcpy( acc_dev, acc, bodies_size_float4, cudaMemcpyHostToDevice );
+	cudaMemcpy( vel_dev, vel, bodies_size_float4, cudaMemcpyHostToDevice );
 	cudaMemcpy( m_dev, m, bodies_size_float, cudaMemcpyHostToDevice );
 	cudaMemcpy( r_dev, r, bodies_size_float, cudaMemcpyHostToDevice );
 }
@@ -128,7 +128,7 @@ void deinit()
 }
 
 __device__
-void updatePosAndVel(float3 pos[], float3 vel[], float3 acc[], float3 cur_a, int self)
+void updatePosAndVel(float4 pos[], float4 vel[], float4 acc[], float4 cur_a, int self)
 {
 	float newvx = vel[self].x + (acc[self].x + cur_a.x ) / 2 * TIME_STEP;
 	float newvy = vel[self].y + (acc[self].y + cur_a.y ) / 2 * TIME_STEP;
@@ -146,7 +146,7 @@ void updatePosAndVel(float3 pos[], float3 vel[], float3 acc[], float3 cur_a, int
 }
 
 __device__
-void bodyBodyInteraction(float3 &acc, float m[], int self, int other, float3 dist3, float dist_sqr)
+void bodyBodyInteraction(float4 &acc, float m[], int self, int other, float4 dist3, float dist_sqr)
 {
 	float dist_six = dist_sqr * dist_sqr * dist_sqr;
 	float dist_cub = sqrtf(dist_six);
@@ -166,20 +166,20 @@ __device__ void swap(T& first, T& second)
 }
 
 __device__
-void mergeBodies(float m[], float3 vel[], float3 acc[], int self, int other)
+void mergeBodies(float m[], float4 vel[], float4 acc[], int self, int other)
 {
 	float newMass = m[self] + m[other];
 
 	// Used perfectly unelastic collision model to caculate the velocity after merging.
-	float3 velocity;
+	float4 velocity;
 
 	velocity.x = (vel[self].x * m[self] + vel[other].x * m[other]) / newMass;
 	velocity.y = (vel[self].y * m[self] + vel[other].y * m[other]) / newMass;
 	velocity.z = (vel[self].z * m[self] + vel[other].z * m[other]) / newMass;
 
-	float3 zero_float3 = { 0.0f, 0.0f, 0.0f } ;
-	acc[self] = zero_float3;
-	acc[other] = zero_float3;
+	float4 zero_float4 = { 0.0f, 0.0f, 0.0f } ;
+	acc[self] = zero_float4;
+	acc[other] = zero_float4;
 
 	int biggerIndex = self, smallerIndex = other;
 
@@ -191,11 +191,11 @@ void mergeBodies(float m[], float3 vel[], float3 acc[], int self, int other)
 	m[biggerIndex] = newMass;
 	vel[biggerIndex] = velocity;
 	m[smallerIndex] = 0.0f;
-	vel[smallerIndex] = zero_float3;	
+	vel[smallerIndex] = zero_float4;	
 }
 
 __global__ 
-void nbody(float3* pos, float3* acc, float3* vel, float* m, float* r) 
+void nbody(float4* pos, float4* acc, float4* vel, float* m, float* r) 
 {
 	int idx = blockIdx.x * THREADS + threadIdx.x;
 
@@ -205,7 +205,7 @@ void nbody(float3* pos, float3* acc, float3* vel, float* m, float* r)
 	float oldMass = m[idx];
 
 	// initiate the acceleration of the next moment 
-	float3 cur_acc = { 0.0f, 0.0f, 0.0f };
+	float4 cur_acc = { 0.0f, 0.0f, 0.0f };
 
 	// for any two body
 	for (int i = 0; i < N_SIZE; i++) {
@@ -216,7 +216,7 @@ void nbody(float3* pos, float3* acc, float3* vel, float* m, float* r)
 		if (m[idx] == 0)
 			return;
 
-		float3 dist3; // calculate their distance
+		float4 dist3; // calculate their distance
 
 		dist3.x = pos[i].x - pos[idx].x;
 		dist3.y = pos[i].y - pos[idx].y;
@@ -256,7 +256,7 @@ int runKernelNBodySimulation()
 
 	nbody<<<BLOCKS, THREADS>>>(pos_dev, acc_dev, vel_dev, m_dev, r_dev);
 
-	cudaMemcpy( pos, pos_dev, bodies_size_float3, cudaMemcpyDeviceToHost ); 
+	cudaMemcpy( pos, pos_dev, bodies_size_float4, cudaMemcpyDeviceToHost ); 
 	cudaMemcpy( m, m_dev, bodies_size_float, cudaMemcpyDeviceToHost ); 
 	cudaMemcpy( r, r_dev, bodies_size_float, cudaMemcpyDeviceToHost ); 
 
