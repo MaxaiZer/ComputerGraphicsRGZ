@@ -3,6 +3,15 @@
 #include <fstream>
 #include <device_launch_parameters.h>
 
+int BODIES = 12000;
+const int THREADS = 256;
+int BLOCKS;
+#define SOFT_FACTOR 0.00125f
+
+#define GRAVITATIONAL_CONSTANT 0.01f
+#define TIME_STEP 0.001f
+#define DENSITY 1000000
+
 int bodies_size_float4 = 0;
 int bodies_size_float = 0;
 float4 *pos_dev = NULL;
@@ -10,19 +19,18 @@ float4 *vel_dev = NULL;
 float4 *acc_dev = NULL;
 float *m_dev = NULL;
 float *r_dev = NULL;
+int* bodies_dev;
 
-float4 pos[N_SIZE];
-float4 vel[N_SIZE];
-float4 acc[N_SIZE];
-float m[N_SIZE];
-float r[N_SIZE];
+float4* pos;
+float4* vel;
+float4* acc;
+float* m;
+float* r;
 
 Camera camera;
 
-GLuint vertexArray;
-
-__device__
-int icbrt2(unsigned x) {
+//побитовое вычисление корня
+__device__ int icbrt2(unsigned x) {
    int s;
    unsigned y, b, y2;
 
@@ -61,24 +69,47 @@ void initBody(int i)
 
 void initCUDA()
 {
-	bodies_size_float4 = N_SIZE * sizeof(float4);
-	bodies_size_float = N_SIZE * sizeof(float);
+	bodies_size_float4 = BODIES * sizeof(float4);
+	bodies_size_float = BODIES * sizeof(float);
+
+	pos = new float4[BODIES];
+	vel = new float4[BODIES];
+	acc = new float4[BODIES];
+	m = new float[BODIES];
+	r = new float[BODIES];
 
 	cudaMalloc( (void**)&pos_dev, bodies_size_float4 ); 
 	cudaMalloc( (void**)&acc_dev, bodies_size_float4 ); 
 	cudaMalloc( (void**)&vel_dev, bodies_size_float4 ); 
 	cudaMalloc( (void**)&m_dev, bodies_size_float ); 
 	cudaMalloc( (void**)&r_dev, bodies_size_float ); 
+	cudaMalloc((void**)&bodies_dev, 1 * sizeof(int));
 
-	for(int i = 0; i < N_SIZE; i++){
+	for(int i = 0; i < BODIES; i++)
+	{
 		initBody(i);
 	}
 
+	int s = BODIES;
+	cudaError_t p = cudaMemcpy(bodies_dev, &s, 1 * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy( pos_dev, pos, bodies_size_float4, cudaMemcpyHostToDevice );
 	cudaMemcpy( acc_dev, acc, bodies_size_float4, cudaMemcpyHostToDevice );
 	cudaMemcpy( vel_dev, vel, bodies_size_float4, cudaMemcpyHostToDevice );
 	cudaMemcpy( m_dev, m, bodies_size_float, cudaMemcpyHostToDevice );
 	cudaMemcpy( r_dev, r, bodies_size_float, cudaMemcpyHostToDevice );
+
+	BLOCKS = (BODIES + THREADS - 1) / THREADS;
+}
+
+void scanParameters()
+{
+	FILE* file = fopen("info.txt", "r");
+
+	if (file == NULL)
+		return;
+
+	fscanf(file, "%d", &BODIES);
+	fclose(file);
 }
 
 void initGL()
@@ -94,25 +125,23 @@ void initGL()
 
 	glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    /*void glOrtho(GLdouble  left,  GLdouble  right,  GLdouble  bottom,  GLdouble  top,  GLdouble  nearVal,  GLdouble  farVal);*/
 
     gluPerspective (45, (float)WINDOW_W/(float)WINDOW_H, 1, 2000);
    
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-   	gluLookAt(camera.pos.x,camera.pos.y,camera.pos.z, //Camera position
-    camera.pos.x+camera.forward.x,camera.pos.y+camera.forward.y,camera.pos.z+camera.forward.z, //Position of the object to look at
-    camera.up.x,camera.up.y,camera.up.z); //Camera up direction
-
+   	gluLookAt(camera.pos.x,camera.pos.y,camera.pos.z, 
+    camera.pos.x+camera.forward.x,camera.pos.y+camera.forward.y,camera.pos.z+camera.forward.z,
+    camera.up.x,camera.up.y,camera.up.z);
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_FOG);
 }
 
-// init the program
 void init()
 {
+	scanParameters();
 	initGL();
 	initCUDA();
 	atexit(deinit);
@@ -127,26 +156,22 @@ void deinit()
 	cudaFree( vel_dev )	;
 }
 
-__device__
-void updatePosAndVel(float4 pos[], float4 vel[], float4 acc[], float4 cur_a, int self)
+__device__ void updatePosAndVel(float4 pos[], float4 vel[], float4 acc[], float4 cur_a, int self)
 {
 	float newvx = vel[self].x + (acc[self].x + cur_a.x ) / 2 * TIME_STEP;
 	float newvy = vel[self].y + (acc[self].y + cur_a.y ) / 2 * TIME_STEP;
 	float newvz = vel[self].z + (acc[self].z + cur_a.z ) / 2 * TIME_STEP;
 
-	//update position
 	pos[self].x += newvx * TIME_STEP + acc[self].x * TIME_STEP * TIME_STEP /2;
 	pos[self].y += newvy * TIME_STEP + acc[self].y * TIME_STEP * TIME_STEP /2;
 	pos[self].z += newvz * TIME_STEP + acc[self].z * TIME_STEP * TIME_STEP /2;
 
-	//update velocity
 	vel[self].x = newvx;
 	vel[self].y = newvy;
 	vel[self].z = newvz; 
 }
 
-__device__
-void bodyBodyInteraction(float4 &acc, float m[], int self, int other, float4 dist3, float dist_sqr)
+__device__ void bodyBodyInteraction(float4 &acc, float m[], int self, int other, float4 dist3, float dist_sqr)
 {
 	float dist_six = dist_sqr * dist_sqr * dist_sqr;
 	float dist_cub = sqrtf(dist_six);
@@ -165,12 +190,10 @@ __device__ void swap(T& first, T& second)
 	second = tmp;
 }
 
-__device__
-void mergeBodies(float m[], float4 vel[], float4 acc[], int self, int other)
+__device__ void mergeBodies(float m[], float4 vel[], float4 acc[], int self, int other)
 {
 	float newMass = m[self] + m[other];
 
-	// Used perfectly unelastic collision model to caculate the velocity after merging.
 	float4 velocity;
 
 	velocity.x = (vel[self].x * m[self] + vel[other].x * m[other]) / newMass;
@@ -194,12 +217,11 @@ void mergeBodies(float m[], float4 vel[], float4 acc[], int self, int other)
 	vel[smallerIndex] = zero_float4;	
 }
 
-__global__ 
-void nbody(float4* pos, float4* acc, float4* vel, float* m, float* r) 
+__global__  void nbody(float4* pos, float4* acc, float4* vel, float* m, float* r, int* bodies) 
 {
 	int idx = blockIdx.x * THREADS + threadIdx.x;
 
-	if (idx >= N_SIZE || m[idx] == 0)
+	if (idx >= *bodies || m[idx] == 0)
 		return;
 
 	float oldMass = m[idx];
@@ -208,13 +230,13 @@ void nbody(float4* pos, float4* acc, float4* vel, float* m, float* r)
 	float4 cur_acc = { 0.0f, 0.0f, 0.0f };
 
 	// for any two body
-	for (int i = 0; i < N_SIZE; i++) {
+	for (int i = 0; i < *bodies; i++)
+	{
+		if (m[idx] == 0)
+			return;
 
 		if (i == idx || m[i] == 0)
 			continue;
-
-		if (m[idx] == 0)
-			return;
 
 		float4 dist3; // calculate their distance
 
@@ -229,7 +251,6 @@ void nbody(float4* pos, float4* acc, float4* vel, float* m, float* r)
 			bodyBodyInteraction(cur_acc, m, idx, i, dist3, dist_sqr);
 		else
 			mergeBodies(m, vel, acc, idx, i);
-
 	}
 
 	// multiplies a Gravitational Constant
@@ -252,9 +273,7 @@ void nbody(float4* pos, float4* acc, float4* vel, float* m, float* r)
 
 int runKernelNBodySimulation()
 {
-	// Map the buffer to CUDA
-
-	nbody<<<BLOCKS, THREADS>>>(pos_dev, acc_dev, vel_dev, m_dev, r_dev);
+	nbody<<<BLOCKS, THREADS>>>(pos_dev, acc_dev, vel_dev, m_dev, r_dev, bodies_dev);
 
 	cudaMemcpy( pos, pos_dev, bodies_size_float4, cudaMemcpyDeviceToHost ); 
 	cudaMemcpy( m, m_dev, bodies_size_float, cudaMemcpyDeviceToHost ); 

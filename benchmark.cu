@@ -23,7 +23,7 @@ int main(int argc, char** argv){
 
   double dSeconds = elapsedTime/(1000.0);
 
-  double gflops = N_SIZE * N_SIZE/dSeconds/1.0e9 * ITERS ;
+  double gflops = BODIES * BODIES/dSeconds/1.0e9 * ITERS ;
 
   printf("Throughput: %f GFLOPS\n" ,gflops);
  cudaThreadExit();

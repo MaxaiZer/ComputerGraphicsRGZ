@@ -20,13 +20,13 @@
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="benchmark.cu" />
-    <CudaCompile Include="cuda_main.cu" />
+    <CudaCompile Include="main.cu" />
     <CudaCompile Include="nbody.cu" />
-    <CudaCompile Include="util.cu" />
+    <CudaCompile Include="utilities.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="nbody.cuh" />
-    <ClInclude Include="util.cuh" />
+    <ClInclude Include="utilities.cuh" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{423C6BC7-7C84-4CB9-94B9-CC38AF4D763E}</ProjectGuid>
